@@ -122,7 +122,7 @@ def _seed_demo_tenants(storage) -> None:
 
 app = FastAPI(
     title="Extract API",
-    version="1.0.0",
+    version="1.1.0",
     description="Bulk extract & event-driven distribution — reference implementation",
     lifespan=lifespan,
 )

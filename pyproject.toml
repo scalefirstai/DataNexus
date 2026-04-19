@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "datanexus"
-version = "1.0.0"
+version = "1.1.0"
 description = "Bulk extract & event-driven distribution for fund-services data — a reference integration pattern."
 readme = "README.md"
 license = { text = "Apache-2.0" }

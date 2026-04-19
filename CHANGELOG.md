@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-04-19
+
 ### Added
 - Community health files: `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md`.
 - GitHub Actions CI (`.github/workflows/ci.yml`) — lint + test matrix across
@@ -134,5 +136,6 @@ Initial public release.
   rate limits, cancel, partial failure, source outage, tampered
   presigned URLs, webhook HMAC verification, and retention sweep.
 
-[Unreleased]: https://github.com/scalefirstai/DataNexus/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/scalefirstai/DataNexus/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/scalefirstai/DataNexus/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/scalefirstai/DataNexus/releases/tag/v1.0.0
