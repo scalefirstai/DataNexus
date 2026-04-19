@@ -3,6 +3,7 @@
 Covers spec sections: §4.7 (webhook contract — HMAC signing, headers),
 §4.3 (extract.ready payload delivered over webhook).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +13,6 @@ import json
 
 import httpx
 import pytest
-
 
 HEADERS = {"Authorization": "Bearer demo-token-fes"}
 
@@ -49,9 +49,7 @@ async def test_webhook_delivered_with_valid_hmac(api_client):
     extract_id = r.json()["extract_id"]
 
     for _ in range(200):
-        status = await client.get(
-            f"/api/v1/extracts/{extract_id}", headers=HEADERS
-        )
+        status = await client.get(f"/api/v1/extracts/{extract_id}", headers=HEADERS)
         if status.json()["status"] in ("COMPLETED", "FAILED", "PARTIAL"):
             break
         await asyncio.sleep(0.05)
@@ -65,12 +63,7 @@ async def test_webhook_delivered_with_valid_hmac(api_client):
     req_out = mock.received[0]
     body = req_out.content
     sig = req_out.headers["x-extract-signature"]
-    expected = (
-        "sha256="
-        + hmac.new(
-            b"fes-webhook-secret", body, hashlib.sha256
-        ).hexdigest()
-    )
+    expected = "sha256=" + hmac.new(b"fes-webhook-secret", body, hashlib.sha256).hexdigest()
     assert hmac.compare_digest(sig, expected)
     assert req_out.headers["x-extract-event"] == "extract.ready"
     assert "x-extract-delivery" in req_out.headers

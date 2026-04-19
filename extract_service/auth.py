@@ -1,4 +1,5 @@
 """Auth + entitlements + rate limiting (§6, §8.3)."""
+
 from __future__ import annotations
 
 import time
@@ -8,7 +9,7 @@ from typing import Any
 from fastapi import Header, HTTPException, Request, status
 
 from .config import get_settings
-from .errors import EntitlementDenied, RateLimited, Unauthorized
+from .errors import EntitlementDenied, RateLimited
 from .storage import Storage, get_storage
 
 
@@ -46,9 +47,7 @@ def authenticate(
     storage = get_storage()
     app = storage.lookup_app_by_token(token)
     if not app:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="unknown token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unknown token")
     if app.get("cert_fingerprint") and x_mtls_fingerprint:
         if app["cert_fingerprint"] != x_mtls_fingerprint:
             raise HTTPException(
@@ -64,9 +63,7 @@ def authenticate(
     return principal
 
 
-def check_entitlements(
-    storage: Storage, app_id: str, requested: list[str] | None
-) -> list[str]:
+def check_entitlements(storage: Storage, app_id: str, requested: list[str] | None) -> list[str]:
     entitled = storage.entitled_funds(app_id)
     if not requested:
         if not entitled:
@@ -89,9 +86,7 @@ class RateLimiter:
     def __init__(self, storage: Storage) -> None:
         self.storage = storage
 
-    def _check_window(
-        self, app_id: str, kind: str, limit_per_minute: int
-    ) -> tuple[int, int, int]:
+    def _check_window(self, app_id: str, kind: str, limit_per_minute: int) -> tuple[int, int, int]:
         now = time.time()
         window_start = now - 60
         self.storage.prune_rl_events(window_start - 3600)
@@ -107,7 +102,8 @@ class RateLimiter:
         )
         if count >= settings.rate_limit_requests_per_minute:
             raise RateLimited(
-                "request rate limit exceeded", retry_after=60,
+                "request rate limit exceeded",
+                retry_after=60,
                 details={"limit_per_minute": settings.rate_limit_requests_per_minute},
             )
         self.storage.record_rl_event(app_id, "request", time.time())
@@ -119,9 +115,7 @@ class RateLimiter:
 
     def check_presign(self, app_id: str) -> None:
         settings = get_settings()
-        count, _, _ = self._check_window(
-            app_id, "presign", settings.rate_limit_presign_per_minute
-        )
+        count, _, _ = self._check_window(app_id, "presign", settings.rate_limit_presign_per_minute)
         if count >= settings.rate_limit_presign_per_minute:
             raise RateLimited(
                 "presigned URL rate limit exceeded",

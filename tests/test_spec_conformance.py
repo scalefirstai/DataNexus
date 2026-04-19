@@ -14,6 +14,7 @@ Deliberate exceptions live in `_EXEMPT_SECTIONS` below — use sparingly
 and always with a comment explaining why a runtime test cannot cover
 the section (e.g. purely narrative sections like Glossary).
 """
+
 from __future__ import annotations
 
 import re
@@ -29,31 +30,31 @@ TESTS_DIR = REPO_ROOT / "tests"
 # the reference implementation cannot exercise (e.g. SKIP LOCKED scale-out,
 # BYOK). Keep this list short; a growing exemption list is a code smell.
 _EXEMPT_SECTIONS = {
-    "1.1",    # In Scope — prose
-    "1.2",    # Out of Scope — prose
-    "1.3",    # Design Principles — prose (enforced by other tests)
-    "2.1",    # Actors — prose
-    "2.2",    # Communication Flow Summary — prose
-    "3.1",    # Base Path — covered implicitly by every api_client test
-    "3.2",    # Parent heading for §3.2.1–5; each child has its own tests
+    "1.1",  # In Scope — prose
+    "1.2",  # Out of Scope — prose
+    "1.3",  # Design Principles — prose (enforced by other tests)
+    "2.1",  # Actors — prose
+    "2.2",  # Communication Flow Summary — prose
+    "3.1",  # Base Path — covered implicitly by every api_client test
+    "3.2",  # Parent heading for §3.2.1–5; each child has its own tests
     "4.7.1",  # HMAC secret rotation — governance/operational, no runtime code
-    "5.2",    # File sizing guidelines — advisory, not enforced in code
-    "6.5",    # Key management / BYOK — production topology
-    "8.1",    # SLI definitions — narrative
-    "8.2",    # SLO targets — measurement framework, not runtime
-    "8.4",    # Peak-window capacity planning — narrative
+    "5.2",  # File sizing guidelines — advisory, not enforced in code
+    "6.5",  # Key management / BYOK — production topology
+    "8.1",  # SLI definitions — narrative
+    "8.2",  # SLO targets — measurement framework, not runtime
+    "8.4",  # Peak-window capacity planning — narrative
     "8.4.1",  # Worker scale-out mechanism — production topology
-    "9.3",    # Alerts — rule definitions for an external monitoring stack
-    "10.1",   # API versioning — governance
-    "10.2",   # Event schema versioning — governance
-    "10.3",   # Output schema versioning — governance
-    "10.4",   # Versioning interaction matrix — governance
-    "11.1",   # Onboarding prerequisites — operational
-    "11.2",   # Sandbox — the /sandbox prefix exists; contract parity tested via §3.2.*
-    "11.3",   # Consumer responsibilities — prose
-    "12.2",   # Event bus outage — hard to simulate in contract emulator
-    "12.3",   # Storage outage — hard to simulate against local FS
-    "12.4",   # Peak window — load-test territory
+    "9.3",  # Alerts — rule definitions for an external monitoring stack
+    "10.1",  # API versioning — governance
+    "10.2",  # Event schema versioning — governance
+    "10.3",  # Output schema versioning — governance
+    "10.4",  # Versioning interaction matrix — governance
+    "11.1",  # Onboarding prerequisites — operational
+    "11.2",  # Sandbox — the /sandbox prefix exists; contract parity tested via §3.2.*
+    "11.3",  # Consumer responsibilities — prose
+    "12.2",  # Event bus outage — hard to simulate in contract emulator
+    "12.3",  # Storage outage — hard to simulate against local FS
+    "12.4",  # Peak window — load-test territory
 }
 
 
@@ -91,8 +92,7 @@ def test_every_spec_section_has_a_test_reference() -> None:
         pytest.fail(
             "The following spec sections have no test referencing them "
             "(add `§X.Y` in a test docstring or string literal, or add the "
-            "section to _EXEMPT_SECTIONS with a justifying comment):\n  - "
-            + "\n  - ".join(missing)
+            "section to _EXEMPT_SECTIONS with a justifying comment):\n  - " + "\n  - ".join(missing)
         )
 
 

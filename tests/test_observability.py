@@ -7,12 +7,12 @@ response), §9.4.1 (API mints a correlation_id when the client does
 not provide one and echoes it back in the `X-Correlation-Id`
 response header).
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
-
 
 HEADERS = {"Authorization": "Bearer demo-token-fes"}
 
@@ -52,9 +52,9 @@ async def test_correlation_id_echoed_when_provided(api_client):
         headers={**HEADERS, "X-Correlation-Id": supplied},
     )
     assert r.status_code == 202, r.text
-    assert r.headers["X-Correlation-Id"] == supplied, (
-        "API must echo client-supplied correlation_id unchanged (§9.4)"
-    )
+    assert (
+        r.headers["X-Correlation-Id"] == supplied
+    ), "API must echo client-supplied correlation_id unchanged (§9.4)"
 
 
 @pytest.mark.asyncio
@@ -78,9 +78,9 @@ async def test_metrics_emitted_on_request_path(api_client):
     await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
 
     after = metrics.snapshot()
-    assert after["counters"] != before["counters"], (
-        "expected metric counters to move during a normal request lifecycle"
-    )
+    assert (
+        after["counters"] != before["counters"]
+    ), "expected metric counters to move during a normal request lifecycle"
     presigned_keys = [
         k for k in after["counters"] if k.startswith("extract.storage.presigned_urls_issued")
     ]

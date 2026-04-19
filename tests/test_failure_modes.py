@@ -8,12 +8,12 @@ Covers spec sections: §3.2.3 (files endpoint semantics while non-terminal),
 §7.3 (PARTIAL as first-class terminal status),
 §12.1 (source-outage runbook scenario).
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
-
 
 HEADERS = {"Authorization": "Bearer demo-token-fes"}
 
@@ -84,9 +84,7 @@ async def test_invalid_presigned_token_rejected(api_client):
     extract_id = r.json()["extract_id"]
     final = await _await_terminal(client, extract_id)
     assert final["status"] == "COMPLETED"
-    files = await client.get(
-        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
-    )
+    files = await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
     url = files.json()["files"][0]["download_url"]
     tampered = url.replace("token=", "token=bad")
     r2 = await client.get(tampered)
@@ -111,12 +109,8 @@ async def test_files_hidden_for_unentitled_consumer(api_client):
 
     storage = get_storage()
     with storage.tx() as conn:
-        conn.execute(
-            "DELETE FROM entitlements WHERE app_id='fes-plus-plus' AND fund_id='fund_C'"
-        )
-    files = await client.get(
-        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
-    )
+        conn.execute("DELETE FROM entitlements WHERE app_id='fes-plus-plus' AND fund_id='fund_C'")
+    files = await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
     parts = {f["partition_key"] for f in files.json()["files"]}
     assert "fund_C" not in parts
     assert parts == {"fund_A", "fund_B"}
@@ -130,8 +124,6 @@ async def test_files_unavailable_while_running(api_client):
     req["fund_scope"] = ["fund_A"]
     r = await client.post("/api/v1/extracts", json=req, headers=HEADERS)
     extract_id = r.json()["extract_id"]
-    r2 = await client.get(
-        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
-    )
+    r2 = await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
     # Either ACCEPTED/RUNNING (409) or already COMPLETED (200). Both valid.
     assert r2.status_code in (200, 409)

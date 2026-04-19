@@ -6,6 +6,7 @@ Implements:
 - Atomic publish protocol (staging → rename)
 - HMAC-signed "presigned URL" simulation with expiry
 """
+
 from __future__ import annotations
 
 import gzip
@@ -15,7 +16,7 @@ import json
 import os
 import shutil
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -75,9 +76,9 @@ def _serialise(rows: list[dict[str, Any]], fmt: OutputFormat) -> bytes:
         return ("\n".join(lines) + "\n").encode("utf-8")
     # Parquet path: for the reference impl we emit a JSON surrogate with .parquet
     # extension. Production would use pyarrow.
-    return json.dumps(
-        {"_format": "parquet-surrogate", "rows": rows}, separators=(",", ":")
-    ).encode("utf-8")
+    return json.dumps({"_format": "parquet-surrogate", "rows": rows}, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
 
 class ObjectStore:
@@ -149,9 +150,7 @@ class ObjectStore:
         """Atomic promote: rename staging/ prefix to published path + _SUCCESS."""
         staging = self.staging_prefix(extract_id)
         if not staging.exists():
-            raise FileNotFoundError(
-                f"staging prefix missing for extract {extract_id}"
-            )
+            raise FileNotFoundError(f"staging prefix missing for extract {extract_id}")
         destination = self.published_prefix(domain, extract_id)
         destination.parent.mkdir(parents=True, exist_ok=True)
         if destination.exists():
@@ -183,9 +182,7 @@ class ObjectStore:
                     return candidate
         return None
 
-    def file_path(
-        self, extract_id: str, domain: str, filename: str
-    ) -> Path | None:
+    def file_path(self, extract_id: str, domain: str, filename: str) -> Path | None:
         prefix = self._find_published(extract_id, domain)
         if not prefix:
             return None

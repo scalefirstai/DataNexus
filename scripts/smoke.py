@@ -6,6 +6,7 @@ Usage:
 Starts the FastAPI app in-process, submits an extract request, subscribes to
 the event bus, waits for extract.ready, fetches files, verifies checksums.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from consumer_example.consumer import ExampleConsumer
 from extract_service import main as api_module
 from extract_service.event_bus import get_event_bus
-
 
 TOKEN = "demo-token-fes"
 APP_ID = "fes-plus-plus"
@@ -77,7 +77,7 @@ async def run() -> None:
 
             try:
                 await asyncio.wait_for(done.wait(), timeout=15)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 status_resp = await client.get(
                     f"/api/v1/extracts/{extract_id}",
                     headers={"Authorization": f"Bearer {TOKEN}"},

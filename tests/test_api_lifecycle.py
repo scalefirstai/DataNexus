@@ -7,13 +7,13 @@ Covers spec sections: §3.2.1 (POST), §3.2.2 (status), §3.2.3 (files),
 §6.1 (authentication), §6.2 (entitlements), §6.4 (audit trail),
 §7.4 (idempotency — replay 200, drift 409), §8.3 (rate-limit headers).
 """
+
 from __future__ import annotations
 
 import asyncio
 import hashlib
 
 import pytest
-
 
 BASE_REQUEST = {
     "domain": "nav-ledger",
@@ -84,9 +84,7 @@ async def test_lifecycle_and_event_emission(api_client):
     assert "files_endpoint" in evt["artifact"]
     assert "download_url" not in evt.get("artifact", {})
 
-    files = await client.get(
-        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
-    )
+    files = await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
     assert files.status_code == 200
     body = files.json()
     assert len(body["files"]) == 3
@@ -141,15 +139,11 @@ async def test_cancel_is_idempotent(api_client):
     client, _ = api_client
     r = await client.post("/api/v1/extracts", json=BASE_REQUEST, headers=HEADERS)
     extract_id = r.json()["extract_id"]
-    c1 = await client.post(
-        f"/api/v1/extracts/{extract_id}/cancel", headers=HEADERS
-    )
+    c1 = await client.post(f"/api/v1/extracts/{extract_id}/cancel", headers=HEADERS)
     assert c1.status_code == 200
     # Worker may have completed before cancel arrived; either way cancel is 200.
     assert c1.json()["status"] in ("CANCELLED", "COMPLETED")
-    c2 = await client.post(
-        f"/api/v1/extracts/{extract_id}/cancel", headers=HEADERS
-    )
+    c2 = await client.post(f"/api/v1/extracts/{extract_id}/cancel", headers=HEADERS)
     assert c2.status_code == 200
     assert c2.json()["status"] == c1.json()["status"]
 

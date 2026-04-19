@@ -1,8 +1,10 @@
 """Alert rule definitions (§9.3). Expressed as evaluator functions over metrics."""
+
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 
 @dataclass
@@ -22,12 +24,8 @@ def _high_queue_depth(snapshot: dict[str, Any]) -> bool:
 
 def _api_error_rate(snapshot: dict[str, Any]) -> bool:
     counters = snapshot.get("counters", {})
-    total = sum(
-        v for k, v in counters.items() if k.startswith("extract.api.requests")
-    )
-    errs = sum(
-        v for k, v in counters.items() if k.startswith("extract.api.errors")
-    )
+    total = sum(v for k, v in counters.items() if k.startswith("extract.api.requests"))
+    errs = sum(v for k, v in counters.items() if k.startswith("extract.api.errors"))
     return total > 0 and (errs / total) > 0.01
 
 

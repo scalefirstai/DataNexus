@@ -1,4 +1,5 @@
 """Webhook delivery with HMAC signing + retention sweeper (§4.7, §5.5)."""
+
 from __future__ import annotations
 
 import asyncio
@@ -49,9 +50,7 @@ class WebhookDelivery:
 
     async def start(self, concurrency: int = 2) -> None:
         for i in range(concurrency):
-            self._workers.append(
-                asyncio.create_task(self._run(), name=f"webhook-{i}")
-            )
+            self._workers.append(asyncio.create_task(self._run(), name=f"webhook-{i}"))
 
     async def stop(self) -> None:
         self._stop.set()
@@ -60,13 +59,11 @@ class WebhookDelivery:
         for t in self._workers:
             try:
                 await asyncio.wait_for(t, timeout=5)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 t.cancel()
         await self._client.aclose()
 
-    async def schedule(
-        self, app_id: str, url: str, event_type: str, body: dict[str, Any]
-    ) -> None:
+    async def schedule(self, app_id: str, url: str, event_type: str, body: dict[str, Any]) -> None:
         delivery_id = f"del_{utcnow().strftime('%Y%m%d_%H%M%S')}_{body.get('event_id','x')[-4:]}"
         await self._queue.put(
             WebhookJob(
@@ -94,10 +91,7 @@ class WebhookDelivery:
         max_attempts = len(schedule)
         secret = self._get_secret(job.app_id)
         payload = json.dumps(job.body, default=str, separators=(",", ":")).encode()
-        sig = (
-            "sha256="
-            + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
-        )
+        sig = "sha256=" + hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
         headers = {
             "Content-Type": "application/json",
             "X-Extract-Signature": sig,
@@ -107,9 +101,7 @@ class WebhookDelivery:
         while job.attempts < max_attempts:
             job.attempts += 1
             try:
-                resp = await self._client.post(
-                    job.url, content=payload, headers=headers
-                )
+                resp = await self._client.post(job.url, content=payload, headers=headers)
                 if 200 <= resp.status_code < 300:
                     self.deliveries.append(
                         {
@@ -213,7 +205,7 @@ class RetentionSweeper:
         if self._task:
             try:
                 await asyncio.wait_for(self._task, timeout=5)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 self._task.cancel()
 
     async def _loop(self) -> None:
@@ -224,7 +216,7 @@ class RetentionSweeper:
                 log.exception("retention sweep failed")
             try:
                 await asyncio.wait_for(self._stop.wait(), self.tick_seconds)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 pass
 
     async def run_once(self) -> None:
@@ -264,9 +256,7 @@ class RetentionSweeper:
         for row in self.storage.find_expired():
             extract_id = row["extract_id"]
             self.object_store.delete_published(extract_id, row["domain"])
-            self.storage.update_extract(
-                extract_id, status=ExtractStatus.EXPIRED
-            )
+            self.storage.update_extract(extract_id, status=ExtractStatus.EXPIRED)
             log.info("extract expired", extra={"extract_id": extract_id})
 
         self.event_bus.prune_expired()

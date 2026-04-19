@@ -130,16 +130,15 @@ target-version = "py311"
 extend-exclude = [".venv", "build", "dist", "data"]
 
 [tool.ruff.lint]
+# Deliberately narrow selection — we enforce real-bug rules here and
+# leave formatting + style-opinions to black. Expand with care: the
+# project treats ruff as a CI gate, not a bikeshed.
 select = [
-    "E",    # pycodestyle errors
-    "W",    # pycodestyle warnings
-    "F",    # pyflakes
-    "I",    # isort
-    "B",    # flake8-bugbear
-    "UP",   # pyupgrade
-    "SIM",  # flake8-simplify
-    "C4",   # flake8-comprehensions
-    "RUF",  # ruff-specific
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "B904",  # raise ... from err in except (real correctness nit)
 ]
 ignore = [
     "E501",  # line length — black owns this
@@ -147,7 +146,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["B011", "SIM117"]
+"tests/**" = ["F401", "F811"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["extract_service", "consumer_example"]

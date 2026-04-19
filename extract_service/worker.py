@@ -2,6 +2,7 @@
 
 Materialises per-fund files, applies atomic publish, publishes events.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,7 +30,6 @@ from .models import (
     ExtractReadyEvent,
     ExtractStatus,
     Frequency,
-    NotificationMode,
     OutputFormat,
     Priority,
     utcnow,
@@ -77,9 +77,7 @@ class Worker:
     def simulate_source_outage(self, enabled: bool) -> None:
         self._simulate_source_outage = enabled
 
-    def simulate_partial_failure(
-        self, extract_id: str, fail_funds: set[str]
-    ) -> None:
+    def simulate_partial_failure(self, extract_id: str, fail_funds: set[str]) -> None:
         self._simulate_partial_failure[extract_id] = fail_funds
 
     def pause_processing(self) -> None:
@@ -99,13 +97,11 @@ class Worker:
     async def stop(self) -> None:
         self._stop.set()
         for _ in self._workers:
-            await self._queue.put(
-                Job(priority=99, enqueued_at=0, extract_id="__STOP__")
-            )
+            await self._queue.put(Job(priority=99, enqueued_at=0, extract_id="__STOP__"))
         for t in self._workers:
             try:
                 await asyncio.wait_for(t, timeout=5)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 t.cancel()
         self._workers.clear()
 
@@ -115,9 +111,7 @@ class Worker:
     def queue_depth(self) -> int:
         return self._queue.qsize()
 
-    async def enqueue(
-        self, extract_id: str, priority: Priority
-    ) -> None:
+    async def enqueue(self, extract_id: str, priority: Priority) -> None:
         job = Job(
             priority=PRIORITY_WEIGHT[priority],
             enqueued_at=utcnow().timestamp(),
@@ -146,9 +140,7 @@ class Worker:
             try:
                 await self._process(job.extract_id)
             except Exception:
-                log.exception(
-                    "worker crashed for extract", extra={"extract_id": job.extract_id}
-                )
+                log.exception("worker crashed for extract", extra={"extract_id": job.extract_id})
 
     async def _process(self, extract_id: str) -> None:
         row = self.storage.get_extract(extract_id)
@@ -162,9 +154,7 @@ class Worker:
         app_id = row["app_id"]
         domain = row["domain"]
         correlation_id = request.get("requester", {}).get("correlation_id")
-        set_log_context(
-            extract_id=extract_id, app_id=app_id, correlation_id=correlation_id
-        )
+        set_log_context(extract_id=extract_id, app_id=app_id, correlation_id=correlation_id)
 
         run_id = f"run_{utcnow().strftime('%Y%m%d_%H%M%S')}_{extract_id[-4:]}"
         self.storage.update_extract(
@@ -213,9 +203,7 @@ class Worker:
                     break
 
             percent = int(
-                100
-                * (len(funds_completed) + len(funds_failed))
-                / max(1, len(fund_scope))
+                100 * (len(funds_completed) + len(funds_failed)) / max(1, len(fund_scope))
             )
             self.storage.update_extract(
                 extract_id,
@@ -235,7 +223,11 @@ class Worker:
                 run_id,
                 funds_completed,
                 funds_failed,
-                ErrorCode.SOURCE_TIMEOUT if self._simulate_source_outage else ErrorCode.SOURCE_UNAVAILABLE,
+                (
+                    ErrorCode.SOURCE_TIMEOUT
+                    if self._simulate_source_outage
+                    else ErrorCode.SOURCE_UNAVAILABLE
+                ),
                 "All partitions failed after retries",
                 per_extract_attempts,
             )
@@ -253,9 +245,7 @@ class Worker:
             )
             return
 
-        await self._finalize_completed(
-            extract_id, run_id, files, started
-        )
+        await self._finalize_completed(extract_id, run_id, files, started)
 
     # ---- per-fund extract with retry ----
 
@@ -274,16 +264,12 @@ class Worker:
         while attempts < settings.worker_max_attempts_per_fund:
             attempts += 1
             try:
-                if (
-                    self._simulate_source_outage
-                    or fund
-                    in self._simulate_partial_failure.get(extract_id, set())
+                if self._simulate_source_outage or fund in self._simulate_partial_failure.get(
+                    extract_id, set()
                 ):
                     raise TimeoutError(f"simulated source failure for {fund}")
                 rows = self._synthesize_rows(domain, fund, request)
-                wf = self.object_store.write_partition(
-                    extract_id, fund, rows, fmt, compression
-                )
+                wf = self.object_store.write_partition(extract_id, fund, rows, fmt, compression)
                 get_metrics().inc(
                     "extract.files.bytes_written",
                     wf.size_bytes,
@@ -320,9 +306,7 @@ class Worker:
     # ---- row generation (stand-in for warehouse query) ----
 
     @staticmethod
-    def _synthesize_rows(
-        domain: str, fund: str, request: dict[str, Any]
-    ) -> list[dict[str, Any]]:
+    def _synthesize_rows(domain: str, fund: str, request: dict[str, Any]) -> list[dict[str, Any]]:
         import os
 
         period = request["period"]
@@ -366,9 +350,7 @@ class Worker:
         assert row
         request = row["request"]
         domain = row["domain"]
-        schema_version = (
-            get_domain(domain).schema_version if get_domain(domain) else f"{domain}/v1"
-        )
+        schema_version = get_domain(domain).schema_version if get_domain(domain) else f"{domain}/v1"
         manifest, combined_checksum, total_bytes, total_rows = self._build_manifest(
             extract_id, run_id, files, request, schema_version
         )
@@ -424,9 +406,7 @@ class Worker:
         assert row
         request = row["request"]
         domain = row["domain"]
-        schema_version = (
-            get_domain(domain).schema_version if get_domain(domain) else f"{domain}/v1"
-        )
+        schema_version = get_domain(domain).schema_version if get_domain(domain) else f"{domain}/v1"
         manifest, combined_checksum, total_bytes, total_rows = self._build_manifest(
             extract_id, run_id, files, request, schema_version
         )
@@ -509,7 +489,11 @@ class Worker:
             state_json=state,
         )
         await self._emit_failed(
-            extract_id, row, code, message, retries_attempted,
+            extract_id,
+            row,
+            code,
+            message,
+            retries_attempted,
             {"funds_completed": funds_completed, "funds_failed": funds_failed},
         )
         get_metrics().inc(
@@ -548,9 +532,7 @@ class Worker:
         sources = list(domain_def.sources) if domain_def else []
         total_bytes = sum(f.size_bytes for f in files)
         total_rows = sum(f.row_count for f in files)
-        combined = hashlib.sha256(
-            "".join(sorted(f.checksum for f in files)).encode()
-        ).hexdigest()
+        combined = hashlib.sha256("".join(sorted(f.checksum for f in files)).encode()).hexdigest()
         manifest = {
             "manifest_version": "1.0",
             "extract_id": extract_id,
@@ -563,8 +545,7 @@ class Worker:
             "expires_at": (
                 utcnow()
                 + timedelta(
-                    days=request.get("retention_days")
-                    or get_settings().default_retention_days
+                    days=request.get("retention_days") or get_settings().default_retention_days
                 )
             ).isoformat(),
             "files": [
@@ -617,9 +598,10 @@ class Worker:
     ) -> None:
         request = row["request"]
         domain = row["domain"]
-        combined_checksum = "sha256:" + hashlib.sha256(
-            "".join(sorted(f.checksum for f in files)).encode()
-        ).hexdigest()
+        combined_checksum = (
+            "sha256:"
+            + hashlib.sha256("".join(sorted(f.checksum for f in files)).encode()).hexdigest()
+        )
         files_endpoint = f"/api/v1/extracts/{extract_id}/files"
         evt = ExtractReadyEvent(
             event_id=f"evt_{utcnow().strftime('%Y%m%d_%H%M%S')}_{extract_id[-4:]}",
@@ -633,11 +615,7 @@ class Worker:
                 period_end=request["period"]["end"],
                 as_of=request.get("as_of"),
                 fund_scope=[f.partition_key for f in files],
-                frequency=(
-                    Frequency(request["frequency"])
-                    if request.get("frequency")
-                    else None
-                ),
+                frequency=(Frequency(request["frequency"]) if request.get("frequency") else None),
             ),
             artifact=EventArtifact(
                 file_count=len(files),
@@ -652,9 +630,7 @@ class Worker:
             ),
             lineage=EventLineage(
                 run_id=run_id,
-                sources=list(
-                    get_domain(domain).sources
-                ) if get_domain(domain) else [],
+                sources=list(get_domain(domain).sources) if get_domain(domain) else [],
                 produced_by="extract-worker",
                 duration_seconds=duration,
             ),
@@ -692,11 +668,7 @@ class Worker:
                 period_end=request["period"]["end"],
                 as_of=request.get("as_of"),
                 fund_scope=request.get("fund_scope") or [],
-                frequency=(
-                    Frequency(request["frequency"])
-                    if request.get("frequency")
-                    else None
-                ),
+                frequency=(Frequency(request["frequency"]) if request.get("frequency") else None),
             ),
             error=ExtractFailedError(
                 code=code,

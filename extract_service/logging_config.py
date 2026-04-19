@@ -1,17 +1,15 @@
 """Structured JSON logging (§9.1)."""
+
 from __future__ import annotations
 
 import contextvars
 import json
 import logging
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-
-_ctx: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar(
-    "log_ctx", default={}
-)
+_ctx: contextvars.ContextVar[dict[str, Any]] = contextvars.ContextVar("log_ctx", default={})
 
 
 def set_log_context(**fields: Any) -> None:
@@ -49,7 +47,7 @@ class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         ctx = _ctx.get()
         payload: dict[str, Any] = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "service": self.service,
             "message": record.getMessage(),

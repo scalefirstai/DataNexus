@@ -7,14 +7,16 @@
 - 7-day event retention
 - Schema versioning via `event_version` on the event payload
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from .config import get_settings
 from .models import BaseEvent, utcnow
@@ -82,11 +84,7 @@ class EventBus:
         event: BaseEvent | dict[str, Any],
         partition_key: str,
     ) -> None:
-        payload = (
-            event.model_dump(mode="json")
-            if isinstance(event, BaseEvent)
-            else event
-        )
+        payload = event.model_dump(mode="json") if isinstance(event, BaseEvent) else event
         async with self._cond:
             while not self._bus_available:
                 await self._cond.wait()
@@ -114,9 +112,7 @@ class EventBus:
 
     # --- subscribe ---
 
-    def subscribe(
-        self, topic: str, group_id: str, handler: Handler
-    ) -> Subscription:
+    def subscribe(self, topic: str, group_id: str, handler: Handler) -> Subscription:
         sub = Subscription(group_id=group_id, handler=handler)
         self._subs[topic].append(sub)
         sub.task = asyncio.create_task(
@@ -134,16 +130,11 @@ class EventBus:
         if sub in self._subs.get(topic, []):
             self._subs[topic].remove(sub)
 
-    async def _run_subscription(
-        self, topic: str, sub: Subscription
-    ) -> None:
+    async def _run_subscription(self, topic: str, sub: Subscription) -> None:
         try:
             while True:
                 async with self._cond:
-                    while (
-                        sub.offset >= len(self._topics[topic])
-                        or sub.paused
-                    ):
+                    while sub.offset >= len(self._topics[topic]) or sub.paused:
                         await self._cond.wait()
                     event = self._topics[topic][sub.offset]
                 await self._deliver(topic, sub, event)
@@ -156,9 +147,7 @@ class EventBus:
                 extra={"topic": topic, "group_id": sub.group_id},
             )
 
-    async def _deliver(
-        self, topic: str, sub: Subscription, event: StoredEvent
-    ) -> None:
+    async def _deliver(self, topic: str, sub: Subscription, event: StoredEvent) -> None:
         event_id = event.event.get("event_id", "unknown")
         attempt = 0
         while attempt < self.MAX_DELIVERY_ATTEMPTS:

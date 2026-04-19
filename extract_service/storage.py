@@ -1,17 +1,18 @@
 """SQLite-backed persistence for extract state, idempotency, entitlements, audit."""
+
 from __future__ import annotations
 
 import json
 import sqlite3
 import threading
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from .config import get_settings
 from .models import ExtractStatus, utcnow
-
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS extracts (
@@ -139,16 +140,12 @@ class Storage:
 
     def lookup_app_by_token(self, token: str) -> dict[str, Any] | None:
         with self.tx() as conn:
-            row = conn.execute(
-                "SELECT * FROM applications WHERE token=?", (token,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM applications WHERE token=?", (token,)).fetchone()
         return dict(row) if row else None
 
     def get_app(self, app_id: str) -> dict[str, Any] | None:
         with self.tx() as conn:
-            row = conn.execute(
-                "SELECT * FROM applications WHERE app_id=?", (app_id,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM applications WHERE app_id=?", (app_id,)).fetchone()
         return dict(row) if row else None
 
     def entitled_funds(self, app_id: str) -> set[str]:
@@ -160,13 +157,8 @@ class Storage:
 
     # ---------------- idempotency ----------------
 
-    def lookup_idempotency(
-        self, app_id: str, key: str
-    ) -> dict[str, Any] | None:
-        cutoff = (
-            utcnow()
-            - timedelta(days=get_settings().idempotency_key_ttl_days)
-        ).isoformat()
+    def lookup_idempotency(self, app_id: str, key: str) -> dict[str, Any] | None:
+        cutoff = (utcnow() - timedelta(days=get_settings().idempotency_key_ttl_days)).isoformat()
         with self.tx() as conn:
             row = conn.execute(
                 "SELECT * FROM idempotency WHERE app_id=? AND key=? AND created_at>=?",
@@ -174,9 +166,7 @@ class Storage:
             ).fetchone()
         return dict(row) if row else None
 
-    def record_idempotency(
-        self, app_id: str, key: str, extract_id: str, fingerprint: str
-    ) -> None:
+    def record_idempotency(self, app_id: str, key: str, extract_id: str, fingerprint: str) -> None:
         with self.tx() as conn:
             conn.execute(
                 "INSERT INTO idempotency(key, app_id, extract_id, request_fingerprint, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -265,9 +255,7 @@ class Storage:
         vals.append(utcnow().isoformat())
         vals.append(extract_id)
         with self.tx() as conn:
-            conn.execute(
-                f"UPDATE extracts SET {', '.join(sets)} WHERE extract_id=?", vals
-            )
+            conn.execute(f"UPDATE extracts SET {', '.join(sets)} WHERE extract_id=?", vals)
 
     def list_extracts(
         self,
@@ -317,9 +305,7 @@ class Storage:
             rows = filtered
         return rows
 
-    def find_expiring(
-        self, warn_window: timedelta
-    ) -> list[dict[str, Any]]:
+    def find_expiring(self, warn_window: timedelta) -> list[dict[str, Any]]:
         now = utcnow()
         warn_cutoff = (now + warn_window).isoformat()
         with self.tx() as conn:
@@ -384,9 +370,7 @@ class Storage:
 
     def prune_rl_events(self, before_ts: float) -> None:
         with self.tx() as conn:
-            conn.execute(
-                "DELETE FROM rate_limit_events WHERE ts<?", (before_ts,)
-            )
+            conn.execute("DELETE FROM rate_limit_events WHERE ts<?", (before_ts,))
 
     def count_active_extracts(self, app_id: str) -> int:
         with self.tx() as conn:

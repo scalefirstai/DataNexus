@@ -7,9 +7,9 @@ Demonstrates:
 - Verifying per-file sha256 checksums from the manifest before processing.
 - Committing "offsets" (handler returns successfully → bus advances).
 """
+
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import logging
 from typing import Any
@@ -75,9 +75,7 @@ class ExampleConsumer:
             )
 
         self.seen_event_ids.add(event_id or "")
-        self.processed_extracts.append(
-            {"extract_id": extract_id, "files": downloaded}
-        )
+        self.processed_extracts.append({"extract_id": extract_id, "files": downloaded})
         log.info(
             "extract processed",
             extra={"extract_id": extract_id, "file_count": len(downloaded)},

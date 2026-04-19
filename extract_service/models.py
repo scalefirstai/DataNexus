@@ -2,14 +2,14 @@
 
 Mirrors sections §3 (REST API) and §4 (Event Bus) of the spec.
 """
+
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from enum import Enum
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -88,7 +88,7 @@ class Period(BaseModel):
     end: date
 
     @model_validator(mode="after")
-    def _check_order(self) -> "Period":
+    def _check_order(self) -> Period:
         if self.end < self.start:
             raise ValueError("period.end must be on or after period.start")
         return self
@@ -106,7 +106,7 @@ class NotificationSpec(BaseModel):
     callback_url: str | None = None
 
     @model_validator(mode="after")
-    def _conditional_fields(self) -> "NotificationSpec":
+    def _conditional_fields(self) -> NotificationSpec:
         if self.mode == NotificationMode.EVENT and not self.topic:
             raise ValueError("notification.topic is required when mode=event")
         if self.mode == NotificationMode.WEBHOOK and not self.callback_url:
@@ -342,4 +342,4 @@ class ExtractExpiringEvent(BaseEvent):
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+    return datetime.now(UTC).replace(microsecond=0)

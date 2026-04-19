@@ -1,4 +1,5 @@
 """Error taxonomy (§7.1) and HTTP mapping."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -10,9 +11,7 @@ class ExtractError(Exception):
     http_status: int = 500
     code: ErrorCode = ErrorCode.INTERNAL_ERROR
 
-    def __init__(
-        self, message: str, details: dict[str, Any] | None = None
-    ) -> None:
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.message = message
         self.details = details or {}

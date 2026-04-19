@@ -5,13 +5,13 @@ Covers spec sections: §3.2.3 (files endpoint 410 Gone for EXPIRED),
 §5.5 (retention policy), §5.5.1 (retention/in-flight-download invariant),
 §12.5 (consumer falls behind — API as recovery path).
 """
+
 from __future__ import annotations
 
 import asyncio
 from datetime import timedelta
 
 import pytest
-
 
 HEADERS = {"Authorization": "Bearer demo-token-fes"}
 BASE = {
@@ -58,9 +58,7 @@ async def test_expiring_event_and_cleanup(api_client):
             break
         await asyncio.sleep(0.05)
 
-    storage.update_extract(
-        extract_id, expires_at=utcnow() + timedelta(hours=1)
-    )
+    storage.update_extract(extract_id, expires_at=utcnow() + timedelta(hours=1))
 
     sweeper = api_module.app.state.sweeper
     await sweeper.run_once()
@@ -78,9 +76,7 @@ async def test_expiring_event_and_cleanup(api_client):
     assert evt["scope"]["period_start"] == "2025-01-01"
     assert evt["requester"]["app_id"] == "fes-plus-plus"
 
-    storage.update_extract(
-        extract_id, expires_at=utcnow() - timedelta(seconds=1)
-    )
+    storage.update_extract(extract_id, expires_at=utcnow() - timedelta(seconds=1))
     await sweeper.run_once()
 
     s = await client.get(f"/api/v1/extracts/{extract_id}", headers=HEADERS)
@@ -88,7 +84,5 @@ async def test_expiring_event_and_cleanup(api_client):
 
     # Spec §3.2.3 (v1.1): files endpoint returns 410 Gone for EXPIRED
     # extracts so replays of old events get a terminal signal, not 404.
-    gone = await client.get(
-        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
-    )
+    gone = await client.get(f"/api/v1/extracts/{extract_id}/files", headers=HEADERS)
     assert gone.status_code == 410, gone.text

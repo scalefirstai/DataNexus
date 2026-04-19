@@ -1,4 +1,5 @@
 """FastAPI application wiring §3 REST API endpoints + §10 versioning."""
+
 from __future__ import annotations
 
 import base64
@@ -7,7 +8,7 @@ import json
 import logging
 import secrets
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -17,38 +18,34 @@ from .auth import Principal, authenticate, check_entitlements, get_rate_limiter
 from .config import get_settings
 from .domains import REGISTRY, get_domain
 from .errors import (
-    EntitlementDenied,
     ExtractError,
     IdempotencyConflict,
     NotFoundError,
     RateLimited,
-    Unauthorized,
     ValidationError,
 )
 from .event_bus import get_event_bus
 from .logging_config import configure_logging, set_log_context
 from .metrics import get_metrics
 from .models import (
+    TERMINAL_STATUSES,
     AcceptResponse,
     ApiError,
     CancelResponse,
     CreateExtractRequest,
     ErrorCode,
+    ErrorDetail,
     ExtractLinks,
     ExtractStatus,
     FileEntry,
     FilesResponse,
+    LineageInfo,
     ListExtractsEntry,
     ListExtractsResponse,
     ManifestLink,
-    NotificationMode,
-    Priority,
     ProgressInfo,
     ResultInfo,
     StatusResponse,
-    TERMINAL_STATUSES,
-    LineageInfo,
-    ErrorDetail,
     utcnow,
 )
 from .object_store import get_object_store
@@ -138,9 +135,7 @@ app = FastAPI(
 
 @app.exception_handler(ExtractError)
 async def _extract_error_handler(request: Request, exc: ExtractError) -> JSONResponse:
-    body = ApiError(
-        code=exc.code, message=exc.message, details=exc.details
-    ).model_dump(mode="json")
+    body = ApiError(code=exc.code, message=exc.message, details=exc.details).model_dump(mode="json")
     headers: dict[str, str] = {}
     if isinstance(exc, RateLimited):
         headers["Retry-After"] = str(exc.retry_after)
@@ -152,9 +147,7 @@ async def _fallback_handler(request: Request, exc: Exception) -> JSONResponse:
     log.exception("unhandled")
     return JSONResponse(
         status_code=500,
-        content=ApiError(
-            code=ErrorCode.INTERNAL_ERROR, message=str(exc)
-        ).model_dump(mode="json"),
+        content=ApiError(code=ErrorCode.INTERNAL_ERROR, message=str(exc)).model_dump(mode="json"),
     )
 
 
@@ -187,9 +180,7 @@ def _gen_correlation_id() -> str:
 
 def _request_fingerprint(req: CreateExtractRequest) -> str:
     dumped = req.model_dump(mode="json", exclude={"idempotency_key"})
-    return hashlib.sha256(
-        json.dumps(dumped, sort_keys=True, default=str).encode()
-    ).hexdigest()
+    return hashlib.sha256(json.dumps(dumped, sort_keys=True, default=str).encode()).hexdigest()
 
 
 def _make_extract_id(now: datetime) -> str:
@@ -203,13 +194,9 @@ def _validate_request(req: CreateExtractRequest) -> None:
         raise ValidationError(f"unknown domain: {req.domain}")
     years = (req.period.end - req.period.start).days / 365.25
     if years > settings.max_period_years:
-        raise ValidationError(
-            f"period exceeds max {settings.max_period_years} years"
-        )
+        raise ValidationError(f"period exceeds max {settings.max_period_years} years")
     if req.fund_scope and len(req.fund_scope) > settings.max_fund_scope:
-        raise ValidationError(
-            f"fund_scope exceeds max of {settings.max_fund_scope}"
-        )
+        raise ValidationError(f"fund_scope exceeds max of {settings.max_fund_scope}")
 
 
 def _status_response_from_row(row: dict[str, Any]) -> StatusResponse:
@@ -276,7 +263,7 @@ def _parse_iso(value: str | None) -> datetime | None:
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt
 
 
@@ -309,9 +296,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         principal: Principal = Depends(authenticate),
     ):
         if body.requester.app_id != principal.app_id:
-            raise ValidationError(
-                "requester.app_id must match the authenticated application"
-            )
+            raise ValidationError("requester.app_id must match the authenticated application")
         rl = get_rate_limiter()
         headers = rl.check_request(principal.app_id)
         for k, v in headers.items():
@@ -321,9 +306,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         storage = get_storage()
 
         fingerprint = _request_fingerprint(body)
-        existing = storage.lookup_idempotency(
-            principal.app_id, body.idempotency_key
-        )
+        existing = storage.lookup_idempotency(principal.app_id, body.idempotency_key)
         if existing:
             if existing["request_fingerprint"] != fingerprint:
                 raise IdempotencyConflict(
@@ -332,9 +315,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
                 )
             row = storage.get_extract(existing["extract_id"])
             response.status_code = status.HTTP_200_OK
-            response.headers["Location"] = (
-                f"{prefix}/extracts/{existing['extract_id']}"
-            )
+            response.headers["Location"] = f"{prefix}/extracts/{existing['extract_id']}"
             response.headers["Retry-After"] = "30"
             return AcceptResponse(
                 extract_id=existing["extract_id"],
@@ -348,9 +329,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
                 retry_after_seconds=30,
             )
 
-        resolved_scope = check_entitlements(
-            storage, principal.app_id, body.fund_scope
-        )
+        resolved_scope = check_entitlements(storage, principal.app_id, body.fund_scope)
         rl.check_concurrent(principal.app_id)
 
         now = utcnow()
@@ -373,9 +352,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
                 }
             },
         )
-        storage.record_idempotency(
-            principal.app_id, body.idempotency_key, extract_id, fingerprint
-        )
+        storage.record_idempotency(principal.app_id, body.idempotency_key, extract_id, fingerprint)
         storage.audit(
             principal.app_id,
             "extract.create",
@@ -582,12 +559,8 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         worker: Worker = app.state.worker
         worker.cancel(extract_id)
         now = utcnow()
-        storage.update_extract(
-            extract_id, status=ExtractStatus.CANCELLED, cancelled_at=now
-        )
-        storage.audit(
-            principal.app_id, "extract.cancel", extract_id, "success"
-        )
+        storage.update_extract(extract_id, status=ExtractStatus.CANCELLED, cancelled_at=now)
+        storage.audit(principal.app_id, "extract.cancel", extract_id, "success")
         return CancelResponse(
             extract_id=extract_id,
             status=ExtractStatus.CANCELLED,
@@ -619,8 +592,8 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         if cursor:
             try:
                 cursor_decoded = base64.urlsafe_b64decode(cursor.encode()).decode()
-            except Exception:
-                raise ValidationError("invalid cursor")
+            except Exception as err:
+                raise ValidationError("invalid cursor") from err
         statuses = status_filter.split(",") if status_filter else None
         rows = storage.list_extracts(
             principal.app_id,
@@ -635,9 +608,7 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         next_cursor = None
         if len(rows) > limit:
             tail = rows[limit - 1]
-            next_cursor = base64.urlsafe_b64encode(
-                tail["created_at"].encode()
-            ).decode()
+            next_cursor = base64.urlsafe_b64encode(tail["created_at"].encode()).decode()
             rows = rows[:limit]
         return ListExtractsResponse(
             items=[

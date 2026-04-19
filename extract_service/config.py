@@ -1,4 +1,5 @@
 """Runtime configuration for the extract service."""
+
 from __future__ import annotations
 
 import os
@@ -9,9 +10,7 @@ from pathlib import Path
 @dataclass
 class Settings:
     base_dir: Path = field(
-        default_factory=lambda: Path(
-            os.environ.get("EXTRACT_BASE_DIR", "./data")
-        ).resolve()
+        default_factory=lambda: Path(os.environ.get("EXTRACT_BASE_DIR", "./data")).resolve()
     )
     db_path: Path = field(init=False)
     object_store_root: Path = field(init=False)
