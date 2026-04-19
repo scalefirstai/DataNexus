@@ -332,9 +332,13 @@ class ExtractFailedEvent(BaseEvent):
 
 class ExtractExpiringEvent(BaseEvent):
     event_type: Literal["extract.expiring"] = "extract.expiring"
+    event_version: Literal["1.1"] = "1.1"
     extract_id: str
+    idempotency_key: str
+    scope: EventScope
     expires_at: datetime
     files_endpoint: str
+    requester: EventRequester
 
 
 def utcnow() -> datetime:

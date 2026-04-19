@@ -1,4 +1,8 @@
-"""Webhook delivery with HMAC signature verification."""
+"""Webhook delivery with HMAC signature verification.
+
+Covers spec sections: §4.7 (webhook contract — HMAC signing, headers),
+§4.3 (extract.ready payload delivered over webhook).
+"""
 from __future__ import annotations
 
 import asyncio

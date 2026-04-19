@@ -14,7 +14,7 @@ import httpx
 
 from .config import get_settings
 from .event_bus import EventBus
-from .models import ExtractExpiringEvent, ExtractStatus, utcnow
+from .models import EventRequester, EventScope, ExtractExpiringEvent, ExtractStatus, utcnow
 from .object_store import ObjectStore
 from .storage import Storage
 
@@ -231,13 +231,30 @@ class RetentionSweeper:
         for row in self.storage.find_expiring(self.warn_window):
             extract_id = row["extract_id"]
             expires_at = row["expires_at"]
+            req = json.loads(row["request_json"])
+            period = req.get("period", {})
+            requester = req.get("requester", {})
+            scope = EventScope(
+                domain=row["domain"],
+                period_start=period.get("start"),
+                period_end=period.get("end"),
+                as_of=req.get("as_of"),
+                fund_scope=req.get("fund_scope") or [],
+                frequency=req.get("frequency"),
+            )
             evt = ExtractExpiringEvent(
                 event_id=f"evt_{utcnow().strftime('%Y%m%d_%H%M%S')}_{extract_id[-4:]}",
                 emitted_at=utcnow(),
                 source="extract-api",
                 extract_id=extract_id,
+                idempotency_key=row["idempotency_key"],
+                scope=scope,
                 expires_at=expires_at,
                 files_endpoint=f"/api/v1/extracts/{extract_id}/files",
+                requester=EventRequester(
+                    app_id=requester.get("app_id", row["app_id"]),
+                    correlation_id=requester.get("correlation_id"),
+                ),
             )
             topic = f"fund-services.{row['domain']}.extract.expiring"
             await self.event_bus.publish(topic, evt, partition_key=extract_id)

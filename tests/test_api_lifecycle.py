@@ -1,4 +1,12 @@
-"""Happy-path REST lifecycle + event bus smoke."""
+"""Happy-path REST lifecycle + event bus smoke.
+
+Covers spec sections: §3.2.1 (POST), §3.2.2 (status), §3.2.3 (files),
+§3.2.4 (cancel), §3.2.5 (list), §4.2 (consumer group naming),
+§4.3 (extract.ready event), §4.6 (delivery guarantees),
+§5.1 (path convention), §5.3 (manifest), §5.4 (atomic publish),
+§6.1 (authentication), §6.2 (entitlements), §6.4 (audit trail),
+§7.4 (idempotency — replay 200, drift 409), §8.3 (rate-limit headers).
+"""
 from __future__ import annotations
 
 import asyncio

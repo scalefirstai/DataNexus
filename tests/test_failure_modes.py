@@ -1,4 +1,13 @@
-"""Failure handling — partial, source outage, presigned URL enforcement."""
+"""Failure handling — partial, source outage, presigned URL enforcement.
+
+Covers spec sections: §3.2.3 (files endpoint semantics while non-terminal),
+§4.4 (extract.failed event), §6.2 (entitlement-scoped file listing),
+§6.3 (encryption / presigned URL tamper-evidence),
+§7.1 (error taxonomy — PARTIAL_FAILURE, SOURCE_UNAVAILABLE),
+§7.2 (worker retry policy — exhausted retries → FAILED),
+§7.3 (PARTIAL as first-class terminal status),
+§12.1 (source-outage runbook scenario).
+"""
 from __future__ import annotations
 
 import asyncio

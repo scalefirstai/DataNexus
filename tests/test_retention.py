@@ -1,4 +1,10 @@
-"""Retention sweeper: extract.expiring event + expiry cleanup."""
+"""Retention sweeper: extract.expiring event + expiry cleanup.
+
+Covers spec sections: §3.2.3 (files endpoint 410 Gone for EXPIRED),
+§4.1 (topic naming for expiring), §4.5 (extract.expiring event schema),
+§5.5 (retention policy), §5.5.1 (retention/in-flight-download invariant),
+§12.5 (consumer falls behind — API as recovery path).
+"""
 from __future__ import annotations
 
 import asyncio
@@ -59,9 +65,18 @@ async def test_expiring_event_and_cleanup(api_client):
     sweeper = api_module.app.state.sweeper
     await sweeper.run_once()
     await asyncio.sleep(0.2)
-    assert any(
-        e["event_type"] == "extract.expiring" for e in received
-    ), received
+    expiring = [e for e in received if e["event_type"] == "extract.expiring"]
+    assert expiring, received
+
+    # Spec §4.5 (v1.1): extract.expiring carries scope + requester +
+    # idempotency_key for symmetry with extract.ready / extract.failed.
+    evt = expiring[0]
+    assert evt["event_version"] == "1.1"
+    assert evt["idempotency_key"] == "retention-1"
+    assert evt["scope"]["domain"] == "nav-ledger"
+    assert evt["scope"]["fund_scope"] == ["fund_A"]
+    assert evt["scope"]["period_start"] == "2025-01-01"
+    assert evt["requester"]["app_id"] == "fes-plus-plus"
 
     storage.update_extract(
         extract_id, expires_at=utcnow() - timedelta(seconds=1)
@@ -70,3 +85,10 @@ async def test_expiring_event_and_cleanup(api_client):
 
     s = await client.get(f"/api/v1/extracts/{extract_id}", headers=HEADERS)
     assert s.json()["status"] == "EXPIRED"
+
+    # Spec §3.2.3 (v1.1): files endpoint returns 410 Gone for EXPIRED
+    # extracts so replays of old events get a terminal signal, not 404.
+    gone = await client.get(
+        f"/api/v1/extracts/{extract_id}/files", headers=HEADERS
+    )
+    assert gone.status_code == 410, gone.text

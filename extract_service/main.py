@@ -450,6 +450,18 @@ def _register_routes(app: FastAPI, prefix: str, sandbox: bool) -> None:
         row = storage.get_extract(extract_id)
         if not row or row["app_id"] != principal.app_id:
             raise NotFoundError("extract not found")
+        if row["status"] == ExtractStatus.EXPIRED.value:
+            raise HTTPException(
+                status_code=410,
+                detail={
+                    "code": ErrorCode.VALIDATION_ERROR.value,
+                    "message": (
+                        "extract has expired per retention policy; files are "
+                        "no longer available. Re-submit a fresh extract request "
+                        "if the data is still required."
+                    ),
+                },
+            )
         if row["status"] not in (
             ExtractStatus.COMPLETED.value,
             ExtractStatus.PARTIAL.value,

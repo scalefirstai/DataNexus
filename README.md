@@ -1,6 +1,6 @@
 # DataNexus
 
-> **Bulk extract & event-driven distribution for fund-services data — a reference integration pattern.**
+> **A spec-first reference implementation of event-driven bulk data distribution for fund services — runnable, auditable, and contract-verified.**
 
 [![CI](https://github.com/scalefirstai/DataNexus/actions/workflows/ci.yml/badge.svg)](https://github.com/scalefirstai/DataNexus/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
@@ -10,15 +10,49 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Made by ScaleFirst AI](https://img.shields.io/badge/made%20by-ScaleFirst%20AI-ff69b4.svg)](https://github.com/scalefirstai)
 
-DataNexus is a runnable, contract-first reference implementation of a
-**producer–consumer data-distribution pattern** for large, periodic data
-extracts. It replaces peak-hour direct reads against operational stores with
-a decoupled, auditable pipeline: an API accepts a request, a worker
-materialises immutable files into an object store, and downstream applications
-are notified via an event bus.
+## The problem
 
-It's built to be *read*, not just run: every design choice maps back to a
-numbered section of the [specification](requirements/bulk-extract-distribution-spec.md).
+In fund services, year-end and quarter-end close are the single
+largest source of peak-window failures. Every downstream calculator,
+report, and prospectus engine tries to read the same operational data
+store at the same time — couple release schedules break, connection
+pools saturate, and regulators ask uncomfortable questions about why
+a calc used a mid-run snapshot.
+
+**DataNexus is a reference design for decoupling those reads.** An
+API accepts a request, a worker materialises immutable files into an
+object store, and downstream applications are notified via an event
+bus. Consumers fetch files through presigned, entitlement-scoped URLs
+— never by re-reading the operational store.
+
+It is built to be **read, not just run**. Every design choice maps
+back to a numbered section of the
+[specification](requirements/bulk-extract-distribution-spec.md) so
+that the spec and the running code verify each other.
+
+## What this actually is
+
+Framing matters. DataNexus is:
+
+- A **contract executable** (a runnable conformance suite for the
+  spec), not a production platform. The in-memory event bus, local
+  filesystem object store, and SQLite dev DB are stand-ins — see
+  *Production substitutions* below for the swap-in path.
+- A **composition of Enterprise Integration Patterns** (Hohpe &
+  Woolf, 2003) — specifically Claim Check, File Transfer,
+  Publish-Subscribe Channel with Durable Subscriber, Dead Letter
+  Channel, Idempotent Receiver, and Correlation Identifier —
+  specialised for fund-services batch workloads.
+- Deliberately narrow: **periodic batch extracts with fund-level
+  entitlement in a regulated environment**. Not a data mesh, not a
+  lakehouse, not CDC, not zero-copy sharing. See *When not to use
+  this* below.
+
+The niche is the pitch: **for fund-services estates where data lives
+across Eagle, Geneva, InvestOne, Investran, and a warehouse — not all
+in one Snowflake account — DataNexus is the contract that decouples
+producers from consumers without requiring a migration of the whole
+estate.**
 
 ---
 
@@ -199,14 +233,57 @@ substitution obvious:
 | Component | Reference | Production |
 |---|---|---|
 | Object store | local FS + HMAC signer | S3 / GCS with native presigned URLs |
-| Event bus | in-memory | Kafka / Kinesis / Pub-Sub |
-| DB | SQLite WAL | Postgres with row-level locks |
+| Event bus | in-memory (**contract emulator**, see note) | Kafka / Kinesis / Pub-Sub |
+| DB | SQLite WAL | Postgres with row-level locks (`SELECT … FOR UPDATE SKIP LOCKED`) |
 | Auth | token lookup + header mTLS | OAuth 2.0 client-credentials + mTLS at ingress |
-| Worker | asyncio task pool | K8s / ECS worker pool with priority queues |
-| Retention | in-process sweeper | cron / lifecycle rules on bucket + scheduled DB job |
+| Worker | asyncio task pool | Postgres `SKIP LOCKED` **or** Kafka consumer groups **or** K8s Jobs (§8.4.1 of the spec) |
+| Retention | in-process sweeper | cron / lifecycle rules on bucket + scheduled DB job (with the §5.5.1 URL-before-delete invariant preserved) |
 
 The spec guarantees (atomic publish, at-least-once delivery, entitlement
-boundary, idempotency) are preserved across all of these substitutions.
+boundary, idempotency, URL-expiry-before-file-delete, correlation-id
+propagation) are preserved across all of these substitutions.
+
+> **About the in-memory bus.** It is a **contract emulator** — it
+> implements the per-consumer-group offset / DLQ / retention surface
+> that the spec assumes, and nothing more. It is **not** a Kafka
+> drop-in: the reference bus does not implement log compaction,
+> consumer-group rebalancing, EOS transactions, or partitioner choice.
+> Migrating to real Kafka surfaces decisions the reference doesn't
+> force — partitioning (`extract_id` vs `domain` vs `fund_id`),
+> `acks=all` + `min.insync.replicas=2` on the publish path, cooperative
+> rebalancing during long-running extracts, and so on.
+
+---
+
+## When **not** to use DataNexus
+
+A few explicit non-goals, so the scope stays honest:
+
+- **CDC / streaming replication** — if you need change-data-capture
+  or sub-second streaming materialised views, use Debezium / Kafka
+  Connect / Fivetran. DataNexus is a batch contract.
+- **Zero-copy cross-tenant sharing** — if both sides live in
+  Snowflake, use Snowflake Secure Data Sharing. DataNexus exists
+  because the sides don't live in the same warehouse.
+- **Analytical table sharing** — if the consumer is a BI tool or a
+  Spark/pandas job and wants a **table** (not a per-run file
+  bundle), Delta Sharing or Iceberg REST is a better fit.
+- **Synchronous request/response data access** — DataNexus is
+  explicitly asynchronous. If a consumer needs sub-second reads,
+  build a query API, not an extract pipeline.
+- **Intra-team DAG orchestration** — if both producer and consumer
+  live inside the same Airflow cluster, Airflow Assets / Datasets is
+  the right tool; DataNexus is cross-team, cross-system.
+
+### When to use X instead
+
+| You have… | Use this | Because… |
+|---|---|---|
+| Single-cloud AWS shop, no cross-org sharing | **S3 + S3 Event Notifications → SNS/SQS/EventBridge** | You'd build DataNexus on top of this anyway. If you don't need the API-tier entitlement layer or the logical-run semantics, skip the layer. |
+| Analytical consumers (Spark, Trino, BI) wanting a table | **Delta Sharing** or **Apache Iceberg + REST catalog** | Pull model with time-travel is a better fit for analytics than a per-run push. DataNexus can front a Delta Sharing endpoint once files land if you want both. |
+| All data lives in Snowflake today | **Snowflake Secure Data Sharing** | Zero-copy, no extract, no retention sweep. Genuinely different architecture. |
+| Producer and consumer are both Airflow DAGs in the same cluster | **Airflow Datasets / Assets** | Cross-DAG dependency via outlets is simpler when the scheduler is shared. |
+| You specifically want: cross-system (not single-cloud), API-tier entitlement per-fund, first-class idempotency contract, and a push-notification contract that survives Kafka substitution | **DataNexus** | That exact combination is underserved; every alternative above weakens one of those axes. |
 
 ---
 
