@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a defect in DataNexus behaviour against the spec
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. DataNexus is a
+        contract-first reference implementation — the more directly you
+        can point at the spec section or API contract that's violated,
+        the faster we can fix it.
+
+        **Do not file a public issue for a security vulnerability.**
+        See [SECURITY.md](../SECURITY.md) for the private disclosure process.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug. Include stack traces, logs, or HTTP responses if relevant.
+      placeholder: "POST /api/v1/extracts with X returned 500 instead of 400..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: Cite the spec section (e.g. `§3.2.1`) or contract clause that your expectation is based on.
+      placeholder: "Per §3.2.1, an unentitled fund should return 403..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Step-by-step, or a failing test case. "Works on my machine" is not enough.
+      render: bash
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit / version
+      description: Output of `git rev-parse --short HEAD`, or the release tag.
+      placeholder: "v1.0.0 / abc1234"
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Python version
+      placeholder: "3.12.3"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: "macOS 14.4 / Ubuntu 22.04"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched open and closed issues for a duplicate.
+          required: true
+        - label: I verified the bug against `main` (or noted the tag I tested on).
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

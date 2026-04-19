@@ -1,0 +1,65 @@
+name: Feature request
+description: Propose an enhancement or spec amendment
+labels: [enhancement, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        DataNexus is spec-driven. If your proposal changes behaviour
+        visible over the API, event bus, or object-store contract,
+        treat it as a **spec amendment** — describe the current
+        contract, the proposed change, and the migration story.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What gap or friction does this address? Concrete scenarios beat abstractions.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What should DataNexus do differently? Include API shape, event payload, or module boundary sketches where relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you weigh, and why did you discard them?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      multiple: true
+      options:
+        - REST API (§3)
+        - Event bus (§4)
+        - Webhooks (§4.7)
+        - Object store (§5)
+        - Auth / entitlements (§6)
+        - Errors / retries / idempotency (§7)
+        - Rate limits (§8)
+        - Observability (§9)
+        - Versioning (§10)
+        - Sandbox (§11)
+        - Runbook hooks (§12)
+        - Docs / examples
+        - Tooling / CI
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-flight
+      options:
+        - label: I searched open and closed issues for a similar proposal.
+          required: true
+        - label: I've read the relevant spec section(s) and the README *Production substitutions* table.
+          required: true

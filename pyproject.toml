@@ -1,0 +1,178 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "datanexus"
+version = "1.0.0"
+description = "Bulk extract & event-driven distribution for fund-services data — a reference integration pattern."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [{ name = "ScaleFirst AI", email = "opensource@scalefirstai.dev" }]
+maintainers = [{ name = "ScaleFirst AI", email = "opensource@scalefirstai.dev" }]
+keywords = [
+    "integration-pattern",
+    "event-driven",
+    "producer-consumer",
+    "bulk-extract",
+    "fund-services",
+    "fastapi",
+    "pub-sub",
+    "reference-architecture",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: FastAPI",
+    "Framework :: Pydantic :: 2",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.27",
+    "pydantic>=2.5",
+    "httpx>=0.26",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=4.1",
+]
+lint = [
+    "ruff>=0.4",
+    "black>=24.3",
+    "mypy>=1.9",
+]
+dev = [
+    "datanexus[test,lint]",
+]
+
+[project.urls]
+Homepage      = "https://github.com/scalefirstai/DataNexus"
+Repository    = "https://github.com/scalefirstai/DataNexus"
+Documentation = "https://github.com/scalefirstai/DataNexus/blob/main/docs/architecture.md"
+Specification = "https://github.com/scalefirstai/DataNexus/blob/main/requirements/bulk-extract-distribution-spec.md"
+Changelog     = "https://github.com/scalefirstai/DataNexus/blob/main/CHANGELOG.md"
+Issues        = "https://github.com/scalefirstai/DataNexus/issues"
+
+# ---------------------------------------------------------------- packaging
+
+[tool.setuptools.packages.find]
+include = ["extract_service*", "consumer_example*"]
+exclude = ["tests*", "scripts*", "data*", "docs*"]
+
+# ---------------------------------------------------------------- pytest
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:pydantic.*",
+]
+
+# ---------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+branch = true
+source = ["extract_service", "consumer_example"]
+omit = ["*/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+
+# ---------------------------------------------------------------- black
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.venv
+  | build
+  | dist
+  | data
+)/
+'''
+
+# ---------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "build", "dist", "data"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "SIM",  # flake8-simplify
+    "C4",   # flake8-comprehensions
+    "RUF",  # ruff-specific
+]
+ignore = [
+    "E501",  # line length — black owns this
+    "B008",  # function call in default arg — FastAPI Depends() pattern
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "SIM117"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["extract_service", "consumer_example"]
+
+# ---------------------------------------------------------------- mypy
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+pretty = true
+exclude = [
+    "^\\.venv/",
+    "^build/",
+    "^dist/",
+    "^data/",
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
